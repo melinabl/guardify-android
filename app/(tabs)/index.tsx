@@ -1,3 +1,5 @@
+import { router } from "expo-router";
+import { signOut } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import {
   PermissionsAndroid,
@@ -9,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { BleManager, Device } from "react-native-ble-plx";
+import { auth } from "../../firebaseConfig";
 
 const manager = new BleManager();
 
@@ -110,15 +113,12 @@ export default function HomeScreen() {
 
             const isNowFar = level === "medium" || level === "far";
 
-            // S'éloigne → buzzer ON
             if (isNowFar && !lastAlertState.current) {
               sendCommand("ON");
               Vibration.vibrate(500);
               setStatus("⚠️ Attention ! Objet éloigné !");
               lastAlertState.current = true;
-            }
-            // Revient proche → buzzer OFF
-            else if (!isNowFar && lastAlertState.current) {
+            } else if (!isNowFar && lastAlertState.current) {
               sendCommand("OFF");
               setStatus("✅ Objet récupéré !");
               lastAlertState.current = false;
@@ -149,6 +149,14 @@ export default function HomeScreen() {
       lastAlertState.current = false;
       setStatus("Déconnecté");
     }
+  };
+
+  const handleLogout = async () => {
+    if (device) {
+      await disconnect();
+    }
+    await signOut(auth);
+    router.replace("/login");
   };
 
   return (
@@ -197,6 +205,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </>
       )}
+
+      <TouchableOpacity style={styles.buttonLogout} onPress={handleLogout}>
+        <Text style={styles.buttonText}>🚪 Déconnexion</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -273,6 +285,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: 200,
     alignItems: "center",
+  },
+  buttonLogout: {
+    backgroundColor: "#8E8E93",
+    padding: 15,
+    borderRadius: 10,
+    width: 200,
+    alignItems: "center",
+    marginTop: 30,
   },
   buttonText: {
     color: "white",
