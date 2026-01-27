@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   PermissionsAndroid,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
+  Vibration,
   View,
 } from "react-native";
 import { BleManager, Device } from "react-native-ble-plx";
@@ -20,6 +21,8 @@ export default function HomeScreen() {
   const [isConnected, setIsConnected] = useState(false);
   const [rssi, setRssi] = useState<number | null>(null);
   const [distance, setDistance] = useState("");
+  const [isFar, setIsFar] = useState(false);
+  const lastAlertState = useRef(false);
 
   const requestPermissions = async () => {
     if (Platform.OS === "android") {
@@ -33,10 +36,33 @@ export default function HomeScreen() {
   };
 
   const getDistance = (rssiValue: number) => {
-    if (rssiValue > -50) return "📍 Très proche (< 1m)";
-    if (rssiValue > -70) return "📍 Proche (1-3m)";
-    if (rssiValue > -85) return "📍 Moyen (3-5m)";
+    if (rssiValue > -50) return "close";
+    if (rssiValue > -70) return "near";
+    if (rssiValue > -85) return "medium";
+    return "far";
+  };
+
+  const getDistanceText = (level: string) => {
+    if (level === "close") return "📍 Très proche (< 1m)";
+    if (level === "near") return "📍 Proche (1-3m)";
+    if (level === "medium") return "📍 Moyen (3-5m)";
     return "📍 Loin (> 5m)";
+  };
+
+  const sendCommand = async (command: string) => {
+    if (!device) return;
+
+    try {
+      const base64Command = btoa(command);
+      await device.writeCharacteristicWithResponseForService(
+        SERVICE_UUID,
+        CHARACTERISTIC_UUID,
+        base64Command,
+      );
+      console.log(`Commande "${command}" envoyée`);
+    } catch (e: any) {
+      console.log("Erreur envoi commande:", e.message);
+    }
   };
 
   const scanDevices = async () => {
@@ -79,7 +105,26 @@ export default function HomeScreen() {
           const updatedDevice = await device.readRSSI();
           if (updatedDevice.rssi) {
             setRssi(updatedDevice.rssi);
-            setDistance(getDistance(updatedDevice.rssi));
+            const level = getDistance(updatedDevice.rssi);
+            setDistance(getDistanceText(level));
+
+            const isNowFar = level === "medium" || level === "far";
+
+            // S'éloigne → buzzer ON
+            if (isNowFar && !lastAlertState.current) {
+              sendCommand("ON");
+              Vibration.vibrate(500);
+              setStatus("⚠️ Attention ! Objet éloigné !");
+              lastAlertState.current = true;
+            }
+            // Revient proche → buzzer OFF
+            else if (!isNowFar && lastAlertState.current) {
+              sendCommand("OFF");
+              setStatus("✅ Objet récupéré !");
+              lastAlertState.current = false;
+            }
+
+            setIsFar(isNowFar);
           }
         } catch (e) {
           console.log("Erreur RSSI");
@@ -92,32 +137,16 @@ export default function HomeScreen() {
     };
   }, [device, isConnected]);
 
-  const sendCommand = async (command: string) => {
-    if (!device) {
-      setStatus("Non connecté !");
-      return;
-    }
-
-    try {
-      const base64Command = btoa(command);
-      await device.writeCharacteristicWithResponseForService(
-        SERVICE_UUID,
-        CHARACTERISTIC_UUID,
-        base64Command,
-      );
-      setStatus(`Commande "${command}" envoyée !`);
-    } catch (e: any) {
-      setStatus("Erreur: " + e.message);
-    }
-  };
-
   const disconnect = async () => {
     if (device) {
+      sendCommand("OFF");
       await device.cancelConnection();
       setDevice(null);
       setIsConnected(false);
       setRssi(null);
       setDistance("");
+      setIsFar(false);
+      lastAlertState.current = false;
       setStatus("Déconnecté");
     }
   };
@@ -128,9 +157,15 @@ export default function HomeScreen() {
       <Text style={styles.status}>{status}</Text>
 
       {isConnected && rssi && (
-        <View style={styles.rssiContainer}>
+        <View
+          style={[styles.rssiContainer, isFar && styles.rssiContainerAlert]}
+        >
           <Text style={styles.rssiText}>Signal: {rssi} dBm</Text>
-          <Text style={styles.distanceText}>{distance}</Text>
+          <Text
+            style={[styles.distanceText, isFar && styles.distanceTextAlert]}
+          >
+            {distance}
+          </Text>
         </View>
       )}
 
@@ -192,6 +227,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: "center",
   },
+  rssiContainerAlert: {
+    backgroundColor: "#ffe5e5",
+  },
   rssiText: {
     fontSize: 14,
     color: "#666",
@@ -201,6 +239,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#007AFF",
     marginTop: 5,
+  },
+  distanceTextAlert: {
+    color: "#FF3B30",
   },
   buttonScan: {
     backgroundColor: "#007AFF",
