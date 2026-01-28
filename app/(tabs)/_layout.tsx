@@ -1,35 +1,97 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Tabs } from "expo-router";
+import { Image, StyleSheet } from "react-native";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: "#DB6130",
+        tabBarInactiveTintColor: "#999",
+        tabBarLabelStyle: styles.tabLabel,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Home",
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require("../../assets/images/icon-facebook.png")}
+              style={[styles.icon, { tintColor: color }]}
+            />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="security"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Sécurité",
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require("../../assets/images/icon-facebook.png")}
+              style={[styles.icon, { tintColor: color }]}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="locate"
+        options={{
+          title: "Localiser",
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require("../../assets/images/icon-facebook.png")}
+              style={[styles.icon, { tintColor: color }]}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Notifications",
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require("../../assets/images/icon-facebook.png")}
+              style={[styles.icon, { tintColor: color }]}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profil",
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require("../../assets/images/icon-facebook.png")}
+              style={[styles.icon, { tintColor: color }]}
+            />
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: 70,
+    paddingBottom: 10,
+    paddingTop: 10,
+    elevation: 10,
+  },
+  tabLabel: {
+    fontSize: 11,
+  },
+  icon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+  },
+});

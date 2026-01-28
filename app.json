@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "guardify-android",
+    "name": "Guardify",
     "slug": "guardify-android",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/favicon-guardify.png",
     "scheme": "guardifyandroid",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

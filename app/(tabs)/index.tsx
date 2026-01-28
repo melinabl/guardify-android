@@ -1,302 +1,433 @@
-import { router } from "expo-router";
-import { signOut } from "firebase/auth";
-import { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
-  PermissionsAndroid,
-  Platform,
+  Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  Vibration,
   View,
 } from "react-native";
-import { BleManager, Device } from "react-native-ble-plx";
-import { auth } from "../../firebaseConfig";
-
-const manager = new BleManager();
-
-const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
-const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
+import { getObjects, SavedObject } from "../../utils/storage";
 
 export default function HomeScreen() {
-  const [status, setStatus] = useState("Appuie sur Scanner");
-  const [device, setDevice] = useState<Device | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [rssi, setRssi] = useState<number | null>(null);
-  const [distance, setDistance] = useState("");
-  const [isFar, setIsFar] = useState(false);
-  const lastAlertState = useRef(false);
+  const [activeTab, setActiveTab] = useState("comptes");
+  const [objects, setObjects] = useState<SavedObject[]>([]);
 
-  const requestPermissions = async () => {
-    if (Platform.OS === "android") {
-      await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ]);
+  useFocusEffect(
+    useCallback(() => {
+      loadObjects();
+    }, []),
+  );
+
+  const loadObjects = async () => {
+    const savedObjects = await getObjects();
+    setObjects(savedObjects);
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "comptes":
+        return (
+          <View style={styles.cardsContainer}>
+            <TouchableOpacity
+              style={styles.cardOrange}
+              onPress={() => router.push("/profile")}
+            >
+              <Text style={styles.cardTitle}>
+                Informations{"\n"}personnelles
+              </Text>
+              <View style={styles.cardPlus}>
+                <Text style={styles.plusText}>+</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cardLight}>
+              <Text style={styles.cardTitleDark}>
+                Personnaliser{"\n"}les alertes
+              </Text>
+              <View style={styles.cardPlusLight}>
+                <Text style={styles.plusTextLight}>+</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        );
+      case "objets":
+        return (
+          <View style={styles.cardsContainer}>
+            <TouchableOpacity
+              style={styles.cardOrange}
+              onPress={() => router.push("/locate")}
+            >
+              <Text style={styles.cardTitle}>Localiser mes{"\n"}objets</Text>
+              <View style={styles.cardPlus}>
+                <Text style={styles.plusText}>+</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cardLight}
+              onPress={() => router.push("/add-object")}
+            >
+              <Text style={styles.cardTitleDark}>Ajouter un{"\n"}objet</Text>
+              <View style={styles.cardPlusLight}>
+                <Text style={styles.plusTextLight}>+</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        );
+      case "zones":
+        return (
+          <View style={styles.cardsContainer}>
+            <TouchableOpacity
+              style={styles.cardOrange}
+              onPress={() => router.push("/security")}
+            >
+              <Text style={styles.cardTitle}>
+                Créer ma zone{"\n"}de sécurité
+              </Text>
+              <View style={styles.cardPlus}>
+                <Text style={styles.plusText}>+</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cardLight}>
+              <Text style={styles.cardTitleDark}>Ajouter une{"\n"}zone</Text>
+              <View style={styles.cardPlusLight}>
+                <Text style={styles.plusTextLight}>+</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        );
+      default:
+        return null;
     }
-    return true;
-  };
-
-  const getDistance = (rssiValue: number) => {
-    if (rssiValue > -50) return "close";
-    if (rssiValue > -70) return "near";
-    if (rssiValue > -85) return "medium";
-    return "far";
-  };
-
-  const getDistanceText = (level: string) => {
-    if (level === "close") return "📍 Très proche (< 1m)";
-    if (level === "near") return "📍 Proche (1-3m)";
-    if (level === "medium") return "📍 Moyen (3-5m)";
-    return "📍 Loin (> 5m)";
-  };
-
-  const sendCommand = async (command: string) => {
-    if (!device) return;
-
-    try {
-      const base64Command = btoa(command);
-      await device.writeCharacteristicWithResponseForService(
-        SERVICE_UUID,
-        CHARACTERISTIC_UUID,
-        base64Command,
-      );
-      console.log(`Commande "${command}" envoyée`);
-    } catch (e: any) {
-      console.log("Erreur envoi commande:", e.message);
-    }
-  };
-
-  const scanDevices = async () => {
-    await requestPermissions();
-    setStatus("Scan en cours...");
-
-    manager.startDeviceScan(null, null, async (error, scannedDevice) => {
-      if (error) {
-        setStatus("Erreur: " + error.message);
-        return;
-      }
-
-      if (scannedDevice?.name === "Guardify") {
-        manager.stopDeviceScan();
-        setStatus("Guardify trouvé ! Connexion...");
-
-        try {
-          const connectedDevice = await scannedDevice.connect();
-          await connectedDevice.discoverAllServicesAndCharacteristics();
-          setDevice(connectedDevice);
-          setIsConnected(true);
-          setStatus("Connecté à Guardify !");
-        } catch (e: any) {
-          setStatus("Erreur connexion: " + e.message);
-        }
-      }
-    });
-
-    setTimeout(() => {
-      manager.stopDeviceScan();
-    }, 10000);
-  };
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (device && isConnected) {
-      interval = setInterval(async () => {
-        try {
-          const updatedDevice = await device.readRSSI();
-          if (updatedDevice.rssi) {
-            setRssi(updatedDevice.rssi);
-            const level = getDistance(updatedDevice.rssi);
-            setDistance(getDistanceText(level));
-
-            const isNowFar = level === "medium" || level === "far";
-
-            if (isNowFar && !lastAlertState.current) {
-              sendCommand("ON");
-              Vibration.vibrate(500);
-              setStatus("⚠️ Attention ! Objet éloigné !");
-              lastAlertState.current = true;
-            } else if (!isNowFar && lastAlertState.current) {
-              sendCommand("OFF");
-              setStatus("✅ Objet récupéré !");
-              lastAlertState.current = false;
-            }
-
-            setIsFar(isNowFar);
-          }
-        } catch (e) {
-          console.log("Erreur RSSI");
-        }
-      }, 2000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [device, isConnected]);
-
-  const disconnect = async () => {
-    if (device) {
-      sendCommand("OFF");
-      await device.cancelConnection();
-      setDevice(null);
-      setIsConnected(false);
-      setRssi(null);
-      setDistance("");
-      setIsFar(false);
-      lastAlertState.current = false;
-      setStatus("Déconnecté");
-    }
-  };
-
-  const handleLogout = async () => {
-    if (device) {
-      await disconnect();
-    }
-    await signOut(auth);
-    router.replace("/login");
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Guardify</Text>
-      <Text style={styles.status}>{status}</Text>
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.push("/notifications")}>
+          <Image
+            source={require("../../assets/images/icon-facebook.png")}
+            style={styles.headerIcon}
+          />
+        </TouchableOpacity>
+        <Image
+          source={require("../../assets/images/GUARDIFY-LOGO-SOLO.png")}
+          style={styles.logo}
+        />
+        <TouchableOpacity onPress={() => router.push("/profile")}>
+          <Image
+            source={require("../../assets/images/GUARDIFY-PROFIL.png")}
+            style={styles.avatar}
+          />
+        </TouchableOpacity>
+      </View>
 
-      {isConnected && rssi && (
-        <View
-          style={[styles.rssiContainer, isFar && styles.rssiContainerAlert]}
-        >
-          <Text style={styles.rssiText}>Signal: {rssi} dBm</Text>
-          <Text
-            style={[styles.distanceText, isFar && styles.distanceTextAlert]}
-          >
-            {distance}
-          </Text>
+      {/* Main Content */}
+      <View style={styles.content}>
+        <Text style={styles.greeting}>Tableau de bord</Text>
+        <Text style={styles.subtitle}>Bonjour ! Vous allez bien ?</Text>
+
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <TouchableOpacity onPress={() => setActiveTab("comptes")}>
+            <Text
+              style={[styles.tab, activeTab === "comptes" && styles.tabActive]}
+            >
+              Comptes
+            </Text>
+            {activeTab === "comptes" && <View style={styles.tabDot} />}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setActiveTab("objets")}>
+            <Text
+              style={[styles.tab, activeTab === "objets" && styles.tabActive]}
+            >
+              Objets
+            </Text>
+            {activeTab === "objets" && <View style={styles.tabDot} />}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setActiveTab("zones")}>
+            <Text
+              style={[styles.tab, activeTab === "zones" && styles.tabActive]}
+            >
+              Zones sécurisées
+            </Text>
+            {activeTab === "zones" && <View style={styles.tabDot} />}
+          </TouchableOpacity>
         </View>
-      )}
 
-      <TouchableOpacity style={styles.buttonScan} onPress={scanDevices}>
-        <Text style={styles.buttonText}>🔍 Scanner</Text>
-      </TouchableOpacity>
+        {/* Tab Content */}
+        {renderTabContent()}
 
-      {isConnected && (
-        <>
-          <TouchableOpacity
-            style={styles.buttonOn}
-            onPress={() => sendCommand("ON")}
-          >
-            <Text style={styles.buttonText}>🔔 Buzzer ON</Text>
-          </TouchableOpacity>
+        {/* Multi-utilisateurs */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Multi-utilisateurs</Text>
+            <Text style={styles.seeMore}>Voir plus &gt;</Text>
+          </View>
+          <View style={styles.multiUserCard}>
+            <Image
+              source={require("../../assets/images/MULTIUTILISATEUR-ICON.png")}
+              style={styles.multiUserIcon}
+            />
+            <View style={styles.multiUserText}>
+              <Text style={styles.multiUserTitle}>Gérer plusieurs comptes</Text>
+              <Text style={styles.multiUserDesc}>
+                Inviter des membres de votre famille pour partager certains
+                objets.
+              </Text>
+            </View>
+          </View>
+        </View>
 
-          <TouchableOpacity
-            style={styles.buttonOff}
-            onPress={() => sendCommand("OFF")}
-          >
-            <Text style={styles.buttonText}>🔕 Buzzer OFF</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.buttonDisconnect}
-            onPress={disconnect}
-          >
-            <Text style={styles.buttonText}>❌ Déconnecter</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      <TouchableOpacity style={styles.buttonLogout} onPress={handleLogout}>
-        <Text style={styles.buttonText}>🚪 Déconnexion</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Objets enregistrés */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Objets enregistrés</Text>
+            <TouchableOpacity onPress={() => router.push("/add-object")}>
+              <Text style={styles.seeMore}>Ajouter un objet &gt;</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.objectsRow}>
+            {objects.length === 0 ? (
+              <Text style={styles.noObjects}>Aucun objet enregistré</Text>
+            ) : (
+              objects.map((obj) => (
+                <TouchableOpacity
+                  key={obj.id}
+                  style={styles.objectItem}
+                  onPress={() => router.push(`/object-detail?id=${obj.id}`)}
+                >
+                  <View style={styles.objectIcon}>
+                    <Text style={styles.objectEmoji}>{obj.icon}</Text>
+                  </View>
+                  <Text style={styles.objectLabel}>{obj.name}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+            <TouchableOpacity
+              style={styles.objectItem}
+              onPress={() => router.push("/add-object")}
+            >
+              <View style={styles.objectIconAdd}>
+                <Text style={styles.objectAddText}>+</Text>
+              </View>
+              <Text style={styles.objectLabel}>Ajouter</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: "#F8F8F7",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
   },
-  title: {
-    fontSize: 32,
+  headerIcon: {
+    width: 28,
+    height: 28,
+    tintColor: "#DB6130",
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    resizeMode: "contain",
+  },
+  avatar: {
+    width: 45,
+    height: 45,
+    borderRadius: 22,
+  },
+  content: {
+    backgroundColor: "#f0e6e0",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 25,
+    minHeight: 600,
+  },
+  greeting: {
+    fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 30,
+    color: "#DB6130",
+    marginBottom: 5,
   },
-  status: {
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: "center",
+  subtitle: {
+    fontSize: 15,
     color: "#333",
+    marginBottom: 25,
   },
-  rssiContainer: {
-    backgroundColor: "#e8f4fd",
-    padding: 15,
-    borderRadius: 10,
+  tabs: {
+    flexDirection: "row",
     marginBottom: 20,
-    alignItems: "center",
   },
-  rssiContainerAlert: {
-    backgroundColor: "#ffe5e5",
-  },
-  rssiText: {
+  tab: {
     fontSize: 14,
-    color: "#666",
+    color: "#999",
+    marginRight: 25,
   },
-  distanceText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#007AFF",
+  tabActive: {
+    color: "#333",
+    fontWeight: "600",
+  },
+  tabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#DB6130",
+    alignSelf: "center",
     marginTop: 5,
   },
-  distanceTextAlert: {
-    color: "#FF3B30",
+  cardsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 25,
   },
-  buttonScan: {
-    backgroundColor: "#007AFF",
-    padding: 15,
+  cardOrange: {
+    backgroundColor: "#DB6130",
+    borderRadius: 15,
+    padding: 20,
+    width: "47%",
+    height: 150,
+    justifyContent: "space-between",
+  },
+  cardLight: {
+    backgroundColor: "rgba(219, 97, 48, 0.3)",
+    borderRadius: 15,
+    padding: 20,
+    width: "47%",
+    height: 150,
+    justifyContent: "space-between",
+  },
+  cardTitle: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  cardTitleDark: {
+    color: "#333",
+    fontSize: 13.75,
+    fontWeight: "600",
+  },
+  cardPlus: {
+    backgroundColor: "rgba(255,255,255,0.3)",
+    width: 35,
+    height: 35,
     borderRadius: 10,
-    width: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardPlusLight: {
+    backgroundColor: "#DB6130",
+    width: 35,
+    height: 35,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  plusText: {
+    color: "#fff",
+    fontSize: 24,
+  },
+  plusTextLight: {
+    color: "#fff",
+    fontSize: 24,
+  },
+  section: {
+    marginBottom: 25,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
   },
-  buttonOn: {
-    backgroundColor: "#34C759",
-    padding: 15,
-    borderRadius: 10,
-    width: 200,
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  buttonOff: {
-    backgroundColor: "#FF9500",
-    padding: 15,
-    borderRadius: 10,
-    width: 200,
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  buttonDisconnect: {
-    backgroundColor: "#FF3B30",
-    padding: 15,
-    borderRadius: 10,
-    width: 200,
-    alignItems: "center",
-  },
-  buttonLogout: {
-    backgroundColor: "#8E8E93",
-    padding: 15,
-    borderRadius: 10,
-    width: 200,
-    alignItems: "center",
-    marginTop: 30,
-  },
-  buttonText: {
-    color: "white",
+  sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#333",
+  },
+  seeMore: {
+    fontSize: 13,
+    color: "#999",
+  },
+  multiUserCard: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 15,
+    alignItems: "center",
+  },
+  multiUserIcon: {
+    width: 40,
+    height: 40,
+    marginRight: 15,
+    tintColor: "#DB6130",
+  },
+  multiUserText: {
+    flex: 1,
+  },
+  multiUserTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 5,
+  },
+  multiUserDesc: {
+    fontSize: 12,
+    color: "#666",
+  },
+  objectsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  objectItem: {
+    alignItems: "center",
+    marginRight: 15,
+    marginBottom: 15,
+  },
+  objectIcon: {
+    width: 60,
+    height: 60,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  objectIconAdd: {
+    width: 60,
+    height: 60,
+    backgroundColor: "rgba(219, 97, 48, 0.2)",
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  objectEmoji: {
+    fontSize: 28,
+  },
+  objectAddText: {
+    fontSize: 28,
+    color: "#DB6130",
+  },
+  objectLabel: {
+    fontSize: 12,
+    color: "#333",
+  },
+  noObjects: {
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic",
   },
 });
