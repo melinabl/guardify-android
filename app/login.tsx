@@ -2,13 +2,13 @@ import { router } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useState } from "react";
 import {
-    Alert,
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth } from "../firebaseConfig";
 
@@ -44,7 +44,7 @@ export default function LoginScreen() {
 
       <View style={styles.inputContainer}>
         <Image
-          source={require("../assets/images/icon-facebook.png")}
+          source={require("../assets/images/PROFIL-ICON-MENU.png")}
           style={styles.inputIcon}
         />
         <TextInput
@@ -60,7 +60,7 @@ export default function LoginScreen() {
 
       <View style={styles.inputContainer}>
         <Image
-          source={require("../assets/images/icon-facebook.png")}
+          source={require("../assets/images/PASSWORD-ICON.png")}
           style={styles.inputIcon}
         />
         <TextInput
@@ -100,15 +100,11 @@ export default function LoginScreen() {
           style={styles.socialIcon}
         />
         <Image
-          source={require("../assets/images/icon-facebook.png")}
+          source={require("../assets/images/icon-instagram.png")}
           style={styles.socialIcon}
         />
         <Image
-          source={require("../assets/images/icon-facebook.png")}
-          style={styles.socialIcon}
-        />
-        <Image
-          source={require("../assets/images/icon-facebook.png")}
+          source={require("../assets/images/icon-linkedin.png")}
           style={styles.socialIcon}
         />
       </View>

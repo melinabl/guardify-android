@@ -18,7 +18,7 @@ export default function TabLayout() {
           title: "Home",
           tabBarIcon: ({ color }) => (
             <Image
-              source={require("../../assets/images/icon-facebook.png")}
+              source={require("../../assets/images/HOME-PNG.png")}
               style={[styles.icon, { tintColor: color }]}
             />
           ),
@@ -30,7 +30,7 @@ export default function TabLayout() {
           title: "Sécurité",
           tabBarIcon: ({ color }) => (
             <Image
-              source={require("../../assets/images/icon-facebook.png")}
+              source={require("../../assets/images/SECURITY-ICON.png")}
               style={[styles.icon, { tintColor: color }]}
             />
           ),
@@ -42,7 +42,7 @@ export default function TabLayout() {
           title: "Localiser",
           tabBarIcon: ({ color }) => (
             <Image
-              source={require("../../assets/images/icon-facebook.png")}
+              source={require("../../assets/images/LOCALISATION-ICON.png")}
               style={[styles.icon, { tintColor: color }]}
             />
           ),
@@ -54,7 +54,7 @@ export default function TabLayout() {
           title: "Notifications",
           tabBarIcon: ({ color }) => (
             <Image
-              source={require("../../assets/images/icon-facebook.png")}
+              source={require("../../assets/images/NOTIFICATION-ICON.png")}
               style={[styles.icon, { tintColor: color }]}
             />
           ),
@@ -66,7 +66,7 @@ export default function TabLayout() {
           title: "Profil",
           tabBarIcon: ({ color }) => (
             <Image
-              source={require("../../assets/images/icon-facebook.png")}
+              source={require("../../assets/images/PROFIL-ICON-MENU.png")}
               style={[styles.icon, { tintColor: color }]}
             />
           ),

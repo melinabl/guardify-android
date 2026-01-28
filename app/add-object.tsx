@@ -1,16 +1,16 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    Alert,
-    Image,
-    PermissionsAndroid,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  PermissionsAndroid,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { BleManager } from "react-native-ble-plx";
 import { SavedObject, saveObject } from "../utils/storage";
@@ -128,11 +128,11 @@ export default function AddObjectScreen() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require("../assets/images/GUARDIFY-LOGO.png")}
+          source={require("../assets/images/GUARDIFY-LOGO-SOLO.png")}
           style={styles.logo}
         />
         <Image
-          source={require("../assets/images/icon-facebook.png")}
+          source={require("../assets/images/GUARDIFY-ICON.png")}
           style={styles.avatar}
         />
       </View>

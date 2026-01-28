@@ -29,14 +29,14 @@ export default function ProfileScreen() {
 
       <View style={styles.avatarContainer}>
         <Image
-          source={require("../../assets/images/icon-facebook.png")}
+          source={require("../../assets/images/GUARDIFY-ICON.png")}
           style={styles.avatar}
         />
         <View style={styles.cameraIcon}>
           <Text>📷</Text>
         </View>
       </View>
-      <Text style={styles.userName}>Profil</Text>
+      <Text style={styles.userName}>Votre profil</Text>
 
       {/* Section 1 */}
       <View style={styles.section}>

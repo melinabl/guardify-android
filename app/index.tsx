@@ -38,7 +38,7 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <Image
-        source={require("../assets/images/GUARDIFY-LOGO.png")}
+        source={require("../assets/images/GUARDIFY-LOGO-WHITE.png")}
         style={styles.logoImage}
       />
       <Text style={styles.subtitle}>Protège tes objets</Text>

@@ -107,7 +107,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/notifications")}>
           <Image
-            source={require("../../assets/images/icon-facebook.png")}
+            source={require("../../assets/images/BELL-ICON.png")}
             style={styles.headerIcon}
           />
         </TouchableOpacity>
@@ -117,7 +117,7 @@ export default function HomeScreen() {
         />
         <TouchableOpacity onPress={() => router.push("/profile")}>
           <Image
-            source={require("../../assets/images/GUARDIFY-PROFIL.png")}
+            source={require("../../assets/images/GUARDIFY-ICON.png")}
             style={styles.avatar}
           />
         </TouchableOpacity>
@@ -126,7 +126,7 @@ export default function HomeScreen() {
       {/* Main Content */}
       <View style={styles.content}>
         <Text style={styles.greeting}>Tableau de bord</Text>
-        <Text style={styles.subtitle}>Bonjour ! Vous allez bien ?</Text>
+        <Text style={styles.subtitle}>Bonjour, content de vous revoir !</Text>
 
         {/* Tabs */}
         <View style={styles.tabs}>
@@ -160,12 +160,18 @@ export default function HomeScreen() {
         {renderTabContent()}
 
         {/* Multi-utilisateurs */}
+        {/* Multi-utilisateurs */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Multi-utilisateurs</Text>
-            <Text style={styles.seeMore}>Voir plus &gt;</Text>
+            <TouchableOpacity onPress={() => router.push("/multi-users")}>
+              <Text style={styles.seeMore}>Voir plus &gt;</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.multiUserCard}>
+          <TouchableOpacity
+            style={styles.multiUserCard}
+            onPress={() => router.push("/multi-users")}
+          >
             <Image
               source={require("../../assets/images/MULTIUTILISATEUR-ICON.png")}
               style={styles.multiUserIcon}
@@ -177,7 +183,7 @@ export default function HomeScreen() {
                 objets.
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Objets enregistrés */}
@@ -235,8 +241,8 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   headerIcon: {
-    width: 28,
-    height: 28,
+    width: 20,
+    height: 25,
     tintColor: "#DB6130",
   },
   logo: {

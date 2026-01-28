@@ -2,13 +2,13 @@ import { router } from "expo-router";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { useState } from "react";
 import {
-    Alert,
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth } from "../firebaseConfig";
 
@@ -49,7 +49,7 @@ export default function ForgotPasswordScreen() {
 
       <View style={styles.inputContainer}>
         <Image
-          source={require("../assets/images/icon-facebook.png")}
+          source={require("../assets/images/PROFIL-ICON-MENU.png")}
           style={styles.inputIcon}
         />
         <TextInput

@@ -11,6 +11,7 @@ export default function RootLayout() {
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="add-object" />
         <Stack.Screen name="object-detail" />
+        <Stack.Screen name="multi-users" />
         <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="dark" />

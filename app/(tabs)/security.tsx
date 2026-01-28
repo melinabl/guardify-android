@@ -76,11 +76,11 @@ export default function SecurityScreen() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require("../../assets/images/GUARDIFY-LOGO.png")}
+          source={require("../../assets/images/GUARDIFY-LOGO-SOLO.png")}
           style={styles.logo}
         />
         <Image
-          source={require("../../assets/images/icon-facebook.png")}
+          source={require("../../assets/images/GUARDIFY-ICON.png")}
           style={styles.avatar}
         />
       </View>

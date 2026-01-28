@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -44,11 +44,42 @@ export default function ObjectDetailScreen() {
   const [distance, setDistance] = useState("");
   const [distanceLevel, setDistanceLevel] = useState("close");
   const lastAlertState = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const deviceRef = useRef<Device | null>(null);
 
-  useEffect(() => {
-    loadObject();
-    requestNotificationPermissions();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      // Reset des états
+      setStatus("Connexion...");
+      setDevice(null);
+      setIsConnected(false);
+      setRssi(null);
+      setDistance("");
+      setDistanceLevel("close");
+      lastAlertState.current = false;
+      deviceRef.current = null;
+
+      // Charge l'objet et connecte
+      loadObject();
+      requestNotificationPermissions();
+
+      // Cleanup quand on quitte la page
+      return () => {
+        console.log("Nettoyage BLE object-detail...");
+        manager.stopDeviceScan();
+
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+
+        if (deviceRef.current) {
+          deviceRef.current.cancelConnection().catch(() => {});
+          deviceRef.current = null;
+        }
+      };
+    }, [id]),
+  );
 
   const requestNotificationPermissions = async () => {
     const { status } = await Notifications.requestPermissionsAsync();
@@ -98,124 +129,131 @@ export default function ObjectDetailScreen() {
     await requestPermissions();
     setStatus("Recherche...");
 
-    // Arrête tout scan précédent
     manager.stopDeviceScan();
 
-    setTimeout(() => {
-      manager.startDeviceScan(null, null, async (error, scannedDevice) => {
-        if (error) {
-          setStatus("Erreur scan: " + error.message);
-          return;
-        }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        if (scannedDevice?.name === "Guardify") {
-          manager.stopDeviceScan();
-          setStatus("Guardify trouvé, connexion...");
+    manager.startDeviceScan(null, null, async (error, scannedDevice) => {
+      if (error) {
+        setStatus("Erreur scan: " + error.message);
+        return;
+      }
 
+      if (scannedDevice?.name === "Guardify") {
+        manager.stopDeviceScan();
+        setStatus("Guardify trouvé, connexion...");
+
+        try {
           try {
-            // Déconnecte si déjà connecté
             const isAlreadyConnected = await scannedDevice.isConnected();
             if (isAlreadyConnected) {
               await scannedDevice.cancelConnection();
+              await new Promise((resolve) => setTimeout(resolve, 500));
             }
+          } catch (e) {}
 
-            // Connecte
-            const connectedDevice = await scannedDevice.connect();
-            setStatus("Découverte des services...");
+          const connectedDevice = await scannedDevice.connect();
+          setStatus("Découverte des services...");
 
-            await connectedDevice.discoverAllServicesAndCharacteristics();
+          await connectedDevice.discoverAllServicesAndCharacteristics();
 
-            setDevice(connectedDevice);
-            setIsConnected(true);
-            setStatus("Connecté ✅");
-          } catch (e: any) {
-            setStatus("Erreur connexion: " + e.message);
-          }
+          setDevice(connectedDevice);
+          deviceRef.current = connectedDevice;
+          setIsConnected(true);
+          setStatus("Connecté ✅");
+
+          startRssiMonitoring(connectedDevice);
+        } catch (e: any) {
+          setStatus("Erreur connexion: " + e.message);
         }
-      });
-    }, 500);
+      }
+    });
 
     setTimeout(() => {
       manager.stopDeviceScan();
     }, 15000);
   };
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (device && isConnected && object) {
-      interval = setInterval(async () => {
-        try {
-          const updatedDevice = await device.readRSSI();
-          if (updatedDevice.rssi) {
-            setRssi(updatedDevice.rssi);
-            const info = getDistanceInfo(updatedDevice.rssi);
-            setDistance(info.text);
-            setDistanceLevel(info.level);
-
-            const isFar = info.level === "medium" || info.level === "far";
-
-            if (isFar && !lastAlertState.current) {
-              Vibration.vibrate([500, 500, 500]);
-              await addNotification(
-                `Attention ! Tu as oublié "${object.name}" !`,
-              );
-              await sendPushNotification(
-                "⚠️ Guardify",
-                `Tu t'éloignes de "${object.name}" !`,
-              );
-              Alert.alert("⚠️ Guardify", `Tu t'éloignes de "${object.name}" !`);
-              setStatus("⚠️ Objet éloigné !");
-              lastAlertState.current = true;
-            } else if (!isFar && lastAlertState.current) {
-              setStatus("Connecté ✅");
-              lastAlertState.current = false;
-            }
-          }
-        } catch (e) {
-          console.log("Erreur RSSI");
-        }
-      }, 2000);
+  const startRssiMonitoring = (connectedDevice: Device) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
     }
 
-    return () => clearInterval(interval);
-  }, [device, isConnected, object]);
+    intervalRef.current = setInterval(async () => {
+      try {
+        const isStillConnected = await connectedDevice.isConnected();
+        if (!isStillConnected) {
+          setStatus("Déconnecté");
+          setIsConnected(false);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          return;
+        }
+
+        const updatedDevice = await connectedDevice.readRSSI();
+        if (updatedDevice.rssi) {
+          setRssi(updatedDevice.rssi);
+          const info = getDistanceInfo(updatedDevice.rssi);
+          setDistance(info.text);
+          setDistanceLevel(info.level);
+
+          const isFar = info.level === "medium" || info.level === "far";
+
+          if (isFar && !lastAlertState.current && object) {
+            Vibration.vibrate([500, 500, 500]);
+            await addNotification(
+              `Attention ! Tu as oublié "${object.name}" !`,
+            );
+            await sendPushNotification(
+              "⚠️ Guardify",
+              `Tu t'éloignes de "${object.name}" !`,
+            );
+            Alert.alert("⚠️ Guardify", `Tu t'éloignes de "${object.name}" !`);
+            setStatus("⚠️ Objet éloigné !");
+            lastAlertState.current = true;
+          } else if (!isFar && lastAlertState.current) {
+            setStatus("Connecté ✅");
+            lastAlertState.current = false;
+          }
+        }
+      } catch (e) {
+        console.log("Erreur RSSI");
+      }
+    }, 2000);
+  };
 
   const sendCommand = async (command: string) => {
     if (!device) {
-      Alert.alert("Erreur", "Appareil non connecté");
+      setStatus("Reconnexion...");
+      connectToDevice();
       return;
     }
 
     try {
-      // Vérifie que l'appareil est toujours connecté
       const connected = await device.isConnected();
       if (!connected) {
         setStatus("Reconnexion...");
         const reconnected = await device.connect();
         await reconnected.discoverAllServicesAndCharacteristics();
         setDevice(reconnected);
+        deviceRef.current = reconnected;
         setStatus("Reconnecté ✅");
       }
 
-      // Encode en base64
       const base64Command = btoa(command);
-
-      console.log("Envoi commande:", command);
-      console.log("Base64:", base64Command);
-      console.log("Service UUID:", SERVICE_UUID);
-      console.log("Characteristic UUID:", CHARACTERISTIC_UUID);
-
       await device.writeCharacteristicWithResponseForService(
         SERVICE_UUID,
         CHARACTERISTIC_UUID,
         base64Command,
       );
 
-      Alert.alert("Succès", `Commande "${command}" envoyée !`);
+      console.log("Commande envoyée:", command);
     } catch (e: any) {
       console.log("Erreur commande:", e.message);
-      Alert.alert("Erreur", e.message);
+      setStatus("Erreur, reconnexion...");
+      connectToDevice();
     }
   };
 
@@ -227,6 +265,14 @@ export default function ObjectDetailScreen() {
         style: "destructive",
         onPress: async () => {
           if (object) {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+            }
+            if (deviceRef.current) {
+              try {
+                await deviceRef.current.cancelConnection();
+              } catch (e) {}
+            }
             await deleteObject(object.id);
             router.back();
           }
